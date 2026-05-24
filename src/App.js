@@ -6,6 +6,7 @@ import { Sprout, Wallet } from 'lucide-react';
 import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
 import Marketplace from './pages/Marketplace';
+import Auctions from './pages/Auctions';
 import AgriAuctionABI from './AgriAuction.json'; 
 
 export default function App() {
@@ -62,6 +63,7 @@ export default function App() {
         </Link>
         <div className="flex gap-6 font-medium text-stone-600">
           <Link to="/marketplace" className="hover:text-agriGreen">Marketplace</Link>
+          <Link to="/auctions" className="hover:text-agriGreen">Auctions</Link>
           <Link to="/dashboard" className="hover:text-agriGreen">Dashboard</Link>
         </div>
         <button 
@@ -75,8 +77,9 @@ export default function App() {
 
       {/* Page Routing */}
       <Routes>
-        <Route path="/" element={<Home />} />
+        <Route path="/" element={<Home contract={contract} />} />
         <Route path="/marketplace" element={<Marketplace account={account} contract={contract} />} />
+        <Route path="/auctions" element={<Auctions account={account} contract={contract} />} />
         <Route path="/dashboard" element={<Dashboard account={account} contract={contract} />} />
       </Routes>
     </div>
