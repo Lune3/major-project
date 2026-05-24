@@ -7,7 +7,7 @@ import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
 import Marketplace from './pages/Marketplace';
 import Auctions from './pages/Auctions';
-import AgriAuctionABI from './AgriAuction.json'; 
+import AgriMarketplaceABI from './AgriMarketplace.json';
 
 export default function App() {
   const [account, setAccount] = useState('');
@@ -23,11 +23,12 @@ export default function App() {
       
       try {
         const netId = await web3.eth.net.getId();
-        const deployedNetwork = AgriAuctionABI.networks[netId];
+        // Update these two lines to use the new ABI
+        const deployedNetwork = AgriMarketplaceABI.networks[netId];
         
         if (deployedNetwork) {
           const instance = new web3.eth.Contract(
-            AgriAuctionABI.abi,
+            AgriMarketplaceABI.abi, // Update here
             deployedNetwork.address
           );
           setContract(instance);

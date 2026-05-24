@@ -4,13 +4,14 @@ import { ShieldCheck, AlertCircle, History, X, ExternalLink } from 'lucide-react
 
 export default function Auctions({ account, contract }) {
   const [pendingReturn, setPendingReturn] = useState('0');
-  const [listing, setListing] = useState(null);
+  const [listings, setListings] = useState([]); // Upgraded to an Array!
   const [isLoading, setIsLoading] = useState(true);
   
-  // New States for the Ledger Modal
+  // States for the Ledger Modal
   const [showLedger, setShowLedger] = useState(false);
   const [bidHistory, setBidHistory] = useState([]);
   const [isLoadingLedger, setIsLoadingLedger] = useState(false);
+  const [activeLedgerName, setActiveLedgerName] = useState("");
 
   useEffect(() => {
     if (contract && account) {
@@ -23,21 +24,25 @@ export default function Auctions({ account, contract }) {
   const fetchAuctionData = async () => {
     setIsLoading(true);
     try {
+      // 1. Fetch global pending returns (Pull-over-Push)
       const returnsWei = await contract.methods.pendingReturns(account).call();
       setPendingReturn(Web3.utils.fromWei(returnsWei.toString(), 'ether'));
 
-      const sellerAddress = await contract.methods.seller().call();
-      if (sellerAddress !== "0x0000000000000000000000000000000000000000") {
-        const cropType = await contract.methods.cropDetails().call();
-        const highestBidWei = await contract.methods.highestBid().call();
-        const isEnded = await contract.methods.ended().call();
-        
-        setListing({
-          cropType,
-          highestBid: Web3.utils.fromWei(highestBidWei.toString(), 'ether'),
-          ended: isEnded
+      // 2. Loop through the database to fetch ALL auctions for the table
+      const count = await contract.methods.listingCounter().call();
+      const fetchedListings = [];
+      
+      for (let i = 1; i <= count; i++) {
+        const auction = await contract.methods.auctions(i).call();
+        fetchedListings.push({
+          id: auction.id,
+          cropType: auction.cropDetails,
+          highestBid: Web3.utils.fromWei(auction.highestBid.toString(), 'ether'),
+          ended: auction.ended
         });
       }
+      
+      setListings(fetchedListings.reverse()); // Newest first
     } catch (error) {
       console.error("Error fetching auction data:", error);
     }
@@ -56,18 +61,18 @@ export default function Auctions({ account, contract }) {
     }
   };
 
-  // --- NEW BLOCKCHAIN LEDGER LOGIC ---
-  const handleViewLedger = async () => {
+  // Upgraded Ledger Query: Filters blockchain events by specific auction ID!
+  const handleViewLedger = async (auctionId, cropName) => {
+    setActiveLedgerName(cropName);
     setShowLedger(true);
     setIsLoadingLedger(true);
     try {
-      // Query the blockchain for every 'HighestBidIncreased' event ever emitted by this contract
       const events = await contract.getPastEvents('HighestBidIncreased', {
+        filter: { auctionId: String(auctionId) }, // Only get bids for THIS specific crop
         fromBlock: 0,
         toBlock: 'latest'
       });
 
-      // Map the raw blockchain data into a clean, readable format and reverse it (newest first)
       const history = events.map(event => ({
         bidder: event.returnValues.bidder,
         amount: Web3.utils.fromWei(event.returnValues.amount.toString(), 'ether'),
@@ -80,6 +85,13 @@ export default function Auctions({ account, contract }) {
       console.error("Error fetching ledger events:", error);
     }
     setIsLoadingLedger(false);
+  };
+
+  const getImageForCrop = (cropName) => {
+    const name = cropName.toLowerCase();
+    if (name.includes('rice')) return '/rice.jpg';
+    if (name.includes('corn')) return '/corn.jpg';
+    return '/wheat.jpg';
   };
 
   if (isLoading) return <div className="p-8 text-stone-500 font-bold">Querying the blockchain...</div>;
@@ -101,7 +113,7 @@ export default function Auctions({ account, contract }) {
           <p className="text-stone-500">Track live listings and manage your secure refunds.</p>
         </div>
         
-        {/* Secure Withdrawal Panel */}
+        {/* Secure Withdrawal Panel (Pull over Push) */}
         <div className={`border-2 p-5 rounded-xl flex items-center gap-6 shadow-sm transition-colors ${
           pendingReturn !== '0' ? 'bg-orange-50 border-orange-200' : 'bg-white border-stone-200'
         }`}>
@@ -134,7 +146,7 @@ export default function Auctions({ account, contract }) {
         </div>
       </div>
 
-      {/* Live Data Table */}
+      {/* Live Data Table (Now Maps Multiple Items) */}
       <div className="bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden">
         <table className="w-full text-left border-collapse">
           <thead>
@@ -146,33 +158,38 @@ export default function Auctions({ account, contract }) {
             </tr>
           </thead>
           <tbody>
-            {listing ? (
-              <tr className="border-b border-stone-100 hover:bg-stone-50 transition-colors">
-                <td className="p-4 flex items-center gap-4">
-                  <div className="w-12 h-12 bg-stone-200 rounded-lg overflow-hidden border border-stone-200 shadow-inner">
-                     <img src="/wheat.jpg" alt="Crop" className={`w-full h-full object-cover ${listing.ended ? 'grayscale' : ''}`} />
-                  </div>
-                  <span className="font-bold text-stone-800 text-lg">{listing.cropType}</span>
-                </td>
-                <td className="p-4 font-mono font-bold text-agriGreen text-lg">
-                  {listing.highestBid} ETH
-                </td>
-                <td className="p-4">
-                  <span className={`px-3 py-1.5 rounded-full text-xs font-black tracking-wide shadow-sm ${
-                    listing.ended ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'
-                  }`}>
-                    {listing.ended ? 'FINALIZED' : 'ACTIVE'}
-                  </span>
-                </td>
-                <td className="p-4">
-                  <button 
-                    onClick={handleViewLedger}
-                    className="bg-stone-100 border border-stone-200 text-stone-600 px-5 py-2.5 rounded-lg text-sm font-bold hover:bg-white hover:border-agriGreen hover:text-agriGreen transition-all shadow-sm flex items-center gap-2"
-                  >
-                    <History className="w-4 h-4" /> View Ledger
-                  </button>
-                </td>
-              </tr>
+            {listings.length > 0 ? (
+              listings.map((listing) => (
+                <tr key={listing.id} className="border-b border-stone-100 hover:bg-stone-50 transition-colors">
+                  <td className="p-4 flex items-center gap-4">
+                    <div className="w-12 h-12 bg-stone-200 rounded-lg overflow-hidden border border-stone-200 shadow-inner relative">
+                      <img src={getImageForCrop(listing.cropType)} alt="Crop" className={`w-full h-full object-cover ${listing.ended ? 'grayscale' : ''}`} />
+                      <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[10px] text-center font-bold">
+                        #{listing.id}
+                      </div>
+                    </div>
+                    <span className="font-bold text-stone-800 text-lg">{listing.cropType}</span>
+                  </td>
+                  <td className="p-4 font-mono font-bold text-agriGreen text-lg">
+                    {listing.highestBid} ETH
+                  </td>
+                  <td className="p-4">
+                    <span className={`px-3 py-1.5 rounded-full text-xs font-black tracking-wide shadow-sm ${
+                      listing.ended ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'
+                    }`}>
+                      {listing.ended ? 'FINALIZED' : 'ACTIVE'}
+                    </span>
+                  </td>
+                  <td className="p-4">
+                    <button 
+                      onClick={() => handleViewLedger(listing.id, listing.cropType)}
+                      className="bg-stone-100 border border-stone-200 text-stone-600 px-5 py-2.5 rounded-lg text-sm font-bold hover:bg-white hover:border-agriGreen hover:text-agriGreen transition-all shadow-sm flex items-center gap-2"
+                    >
+                      <History className="w-4 h-4" /> View Ledger
+                    </button>
+                  </td>
+                </tr>
+              ))
             ) : (
               <tr>
                 <td colSpan="4" className="p-12 text-center text-stone-500 font-medium">
@@ -189,14 +206,13 @@ export default function Auctions({ account, contract }) {
         <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
           <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
             
-            {/* Modal Header */}
             <div className="p-6 border-b border-stone-100 flex justify-between items-center bg-stone-50">
               <div>
                 <h2 className="text-xl font-bold flex items-center gap-2 text-stone-800">
                   <History className="w-5 h-5 text-agriGreen" />
                   Immutable Bid Ledger
                 </h2>
-                <p className="text-sm text-stone-500 mt-1">Decentralized, unalterable record of all bids placed.</p>
+                <p className="text-sm text-stone-500 mt-1">Showing historical bids for: <span className="font-bold text-stone-700">{activeLedgerName}</span></p>
               </div>
               <button 
                 onClick={() => setShowLedger(false)} 
@@ -206,7 +222,6 @@ export default function Auctions({ account, contract }) {
               </button>
             </div>
 
-            {/* Modal Body */}
             <div className="p-6 overflow-y-auto bg-stone-50/50 flex-1">
               {isLoadingLedger ? (
                 <div className="text-center py-12 text-stone-500 font-medium animate-pulse">
@@ -217,7 +232,7 @@ export default function Auctions({ account, contract }) {
                   <div className="w-16 h-16 bg-stone-200 rounded-full flex items-center justify-center mx-auto mb-4">
                     <ShieldCheck className="w-8 h-8 text-stone-400" />
                   </div>
-                  <p className="font-medium">No bids have been recorded on this smart contract yet.</p>
+                  <p className="font-medium">No bids have been recorded for this specific crop yet.</p>
                 </div>
               ) : (
                 <div className="space-y-3">

@@ -3,44 +3,41 @@ import Web3 from 'web3';
 import { Search } from 'lucide-react';
 
 export default function Marketplace({ account, contract }) {
-  const [listing, setListing] = useState(null);
-  const [bidAmount, setBidAmount] = useState('');
+  const [listings, setListings] = useState([]);
+  const [bidAmounts, setBidAmounts] = useState({}); // Stores input values for multiple cards
   const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch the data from the blockchain whenever the page loads or the contract changes
   useEffect(() => {
-    loadLiveListing();
+    loadAllListings();
   }, [contract]);
 
-  const loadLiveListing = async () => {
+  const loadAllListings = async () => {
     if (!contract) {
       setIsLoading(false);
       return;
     }
     try {
-      const sellerAddress = await contract.methods.seller().call();
+      // 1. Find out how many crops have been listed in total
+      const count = await contract.methods.listingCounter().call();
       
-      // If the seller address is a zero address, no auction has been created yet
-      if (sellerAddress === "0x0000000000000000000000000000000000000000") {
-        setIsLoading(false);
-        return;
+      const fetchedListings = [];
+      // 2. Loop through the mapping and fetch every single crop!
+      for (let i = 1; i <= count; i++) {
+        const auction = await contract.methods.auctions(i).call();
+        
+        fetchedListings.push({
+          id: auction.id,
+          seller: auction.seller,
+          cropType: auction.cropDetails,
+          highestBid: Web3.utils.fromWei(auction.highestBid.toString(), 'ether'),
+          buyoutPrice: Web3.utils.fromWei(auction.buyoutPrice.toString(), 'ether'),
+          endTime: Number(auction.endTime),
+          ended: auction.ended
+        });
       }
 
-      // Fetch all state variables from the smart contract
-      const cropType = await contract.methods.cropDetails().call();
-      const highestBidWei = await contract.methods.highestBid().call();
-      const buyoutPriceWei = await contract.methods.buyoutPrice().call();
-      const endTime = await contract.methods.endTime().call();
-      const isEnded = await contract.methods.ended().call();
-
-      setListing({
-        seller: sellerAddress,
-        cropType: cropType,
-        highestBid: Web3.utils.fromWei(highestBidWei.toString(), 'ether'),
-        buyoutPrice: Web3.utils.fromWei(buyoutPriceWei.toString(), 'ether'),
-        endTime: Number(endTime),
-        ended: isEnded
-      });
+      // Reverse the array so the newest listings show up first
+      setListings(fetchedListings.reverse());
       setIsLoading(false);
     } catch (error) {
       console.error("Error reading from blockchain:", error);
@@ -48,44 +45,54 @@ export default function Marketplace({ account, contract }) {
     }
   };
 
-  const handlePlaceBid = async () => {
+  // We now pass the specific auctionId to the blockchain!
+  const handlePlaceBid = async (auctionId) => {
     if (!contract || !account) return alert("Please connect wallet.");
-    if (!bidAmount) return alert("Please enter a bid amount.");
+    const amount = bidAmounts[auctionId];
+    if (!amount) return alert("Please enter a bid amount.");
 
     try {
-      const bidWei = Web3.utils.toWei(bidAmount.toString(), 'ether');
+      const bidWei = Web3.utils.toWei(amount.toString(), 'ether');
       
-      // Trigger MetaMask to sign the bid transaction
-      await contract.methods.placeBid().send({
+      await contract.methods.placeBid(auctionId).send({
         from: account,
         value: bidWei
       });
       
-      alert("Bid successfully placed on the blockchain!");
-      setBidAmount(''); // Clear input
-      loadLiveListing(); // Refresh the UI with the new highest bid
+      alert("Bid successfully placed!");
+      // Clear the input for this specific card and refresh data
+      setBidAmounts(prev => ({...prev, [auctionId]: ''})); 
+      loadAllListings(); 
     } catch (error) {
       console.error("Bidding failed:", error);
       alert("Bidding failed. Ensure your bid is higher than the current highest bid.");
     }
   };
 
-  const handleBuyout = async () => {
+  const handleBuyout = async (auctionId, buyoutPrice) => {
     if (!contract || !account) return alert("Please connect wallet.");
     
     try {
-      const buyoutWei = Web3.utils.toWei(listing.buyoutPrice.toString(), 'ether');
+      const buyoutWei = Web3.utils.toWei(buyoutPrice.toString(), 'ether');
       
-      await contract.methods.buyout().send({
+      await contract.methods.buyout(auctionId).send({
         from: account,
         value: buyoutWei
       });
       
       alert("Buyout successful! The auction is now finalized.");
-      loadLiveListing();
+      loadAllListings();
     } catch (error) {
       console.error("Buyout failed:", error);
     }
+  };
+
+  // Helper to assign a specific image based on the crop name
+  const getImageForCrop = (cropName) => {
+    const name = cropName.toLowerCase();
+    if (name.includes('rice')) return '/rice.jpg';
+    if (name.includes('corn')) return '/corn.jpg';
+    return '/wheat.jpg'; // Default fallback
   };
 
   if (isLoading) return <div className="p-8 text-stone-500 font-bold">Querying the blockchain...</div>;
@@ -109,9 +116,9 @@ export default function Marketplace({ account, contract }) {
 
       {/* Live Marketplace Grid */}
       <div className="w-3/4">
-        <h3 className="font-bold text-xl mb-4">Live Auctions</h3>
+        <h3 className="font-bold text-xl mb-4">Live Auctions ({listings.length})</h3>
         
-        {!listing ? (
+        {listings.length === 0 ? (
           <div className="bg-white p-8 rounded-xl shadow-sm text-center border border-stone-100">
             <Search className="w-12 h-12 text-stone-300 mx-auto mb-2" />
             <p className="text-stone-500 font-medium">No active crop listings found on the network.</p>
@@ -120,65 +127,71 @@ export default function Marketplace({ account, contract }) {
         ) : (
           <div className="grid grid-cols-2 gap-6">
             
-            {/* The Dynamic Listing Card */}
-            <div className={`bg-white rounded-2xl shadow-md border overflow-hidden ${listing.ended ? 'border-red-200 bg-stone-50' : 'border-stone-100 hover:shadow-lg transition-shadow'}`}>
-              
-              {/* IMAGE HEADER */}
-              <div className="h-56 relative">
-                <img src="/wheat.jpg" alt="Live Crop" className={`w-full h-full object-cover ${listing.ended ? 'grayscale opacity-70' : ''}`} />
-                <div className={`absolute top-4 left-4 backdrop-blur-sm px-4 py-1.5 text-xs font-black rounded-md shadow-lg tracking-wide ${
-                  listing.ended ? 'bg-red-600 text-white' : 'bg-white/95 text-emerald-700'
-                }`}>
-                  {listing.ended ? 'AUCTION CLOSED' : 'LIVE AUCTION'}
-                </div>
-              </div>
-
-              <div className="p-6">
-                <h4 className="font-bold text-xl mb-1">{listing.cropType || "Premium Hard Red Wheat"}</h4>
-                <p className="text-sm text-stone-500 mb-5 font-mono truncate">Seller: {listing.seller}</p>
+            {/* Map through EVERY listing on the blockchain */}
+            {listings.map((listing) => (
+              <div key={listing.id} className={`bg-white rounded-2xl shadow-md border overflow-hidden ${listing.ended ? 'border-red-200 bg-stone-50' : 'border-stone-100 hover:shadow-lg transition-shadow'}`}>
                 
-                <div className="space-y-3 mb-6 bg-stone-50 p-4 rounded-xl border border-stone-100">
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-stone-500 font-medium">Current Highest Bid</span>
-                    <span className="font-black text-lg">{listing.highestBid} ETH</span>
-                  </div>
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-stone-500 font-medium">Instant Buyout</span>
-                    <span className="font-black text-lg text-agriGreen">{listing.buyoutPrice} ETH</span>
+                {/* IMAGE HEADER */}
+                <div className="h-56 relative">
+                  <img 
+                    src={getImageForCrop(listing.cropType)} 
+                    alt={listing.cropType} 
+                    className={`w-full h-full object-cover ${listing.ended ? 'grayscale opacity-70' : ''}`} 
+                  />
+                  <div className={`absolute top-4 left-4 backdrop-blur-sm px-4 py-1.5 text-xs font-black rounded-md shadow-lg tracking-wide ${
+                    listing.ended ? 'bg-red-600 text-white' : 'bg-white/95 text-emerald-700'
+                  }`}>
+                    {listing.ended ? 'AUCTION CLOSED' : `ID: #${listing.id} LIVE`}
                   </div>
                 </div>
 
-                {!listing.ended ? (
-                  <div className="space-y-3">
-                    <div className="flex gap-2">
-                      <input 
-                        type="number" 
-                        placeholder={`> ${listing.highestBid} ETH`}
-                        value={bidAmount}
-                        onChange={(e) => setBidAmount(e.target.value)}
-                        className="flex-1 p-2 border border-stone-300 rounded-md text-sm"
-                      />
+                <div className="p-6">
+                  <h4 className="font-bold text-xl mb-1 truncate">{listing.cropType}</h4>
+                  <p className="text-sm text-stone-500 mb-5 font-mono truncate">Seller: {listing.seller}</p>
+                  
+                  <div className="space-y-3 mb-6 bg-stone-50 p-4 rounded-xl border border-stone-100">
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-stone-500 font-medium">Current Highest Bid</span>
+                      <span className="font-black text-lg">{listing.highestBid} ETH</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-stone-500 font-medium">Instant Buyout</span>
+                      <span className="font-black text-lg text-agriGreen">{listing.buyoutPrice} ETH</span>
+                    </div>
+                  </div>
+
+                  {!listing.ended ? (
+                    <div className="space-y-3">
+                      <div className="flex gap-2">
+                        <input 
+                          type="number" 
+                          placeholder={`> ${listing.highestBid} ETH`}
+                          value={bidAmounts[listing.id] || ''}
+                          onChange={(e) => setBidAmounts({...bidAmounts, [listing.id]: e.target.value})}
+                          className="flex-1 p-2 border border-stone-300 rounded-md text-sm focus:ring-2 focus:ring-agriGreen"
+                        />
+                        <button 
+                          onClick={() => handlePlaceBid(listing.id)}
+                          className="bg-agriGreen text-white px-4 py-2 rounded-md text-sm font-bold shadow hover:bg-emerald-800"
+                        >
+                          Place Bid
+                        </button>
+                      </div>
                       <button 
-                        onClick={handlePlaceBid}
-                        className="bg-agriGreen text-white px-4 py-2 rounded-md text-sm font-bold shadow hover:bg-emerald-800"
+                        onClick={() => handleBuyout(listing.id, listing.buyoutPrice)}
+                        className="w-full border-2 border-agriGreen text-agriGreen py-2 rounded-md text-sm font-bold hover:bg-emerald-50"
                       >
-                        Place Bid
+                        Execute Buyout ({listing.buyoutPrice} ETH)
                       </button>
                     </div>
-                    <button 
-                      onClick={handleBuyout}
-                      className="w-full border-2 border-agriGreen text-agriGreen py-2 rounded-md text-sm font-bold hover:bg-emerald-50"
-                    >
-                      Execute Buyout ({listing.buyoutPrice} ETH)
-                    </button>
-                  </div>
-                ) : (
-                  <div className="text-center py-3 bg-stone-200 rounded-md text-stone-600 font-bold">
-                    Auction Finalized
-                  </div>
-                )}
+                  ) : (
+                    <div className="text-center py-3 bg-stone-200 rounded-md text-stone-600 font-bold">
+                      Auction Finalized
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
+            ))}
 
           </div>
         )}
