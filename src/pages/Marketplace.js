@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Web3 from 'web3';
-import { Clock, Search } from 'lucide-react';
+import { Search } from 'lucide-react';
 
 export default function Marketplace({ account, contract }) {
   const [listing, setListing] = useState(null);
@@ -13,7 +13,10 @@ export default function Marketplace({ account, contract }) {
   }, [contract]);
 
   const loadLiveListing = async () => {
-    if (!contract) return;
+    if (!contract) {
+      setIsLoading(false);
+      return;
+    }
     try {
       const sellerAddress = await contract.methods.seller().call();
       
@@ -118,56 +121,63 @@ export default function Marketplace({ account, contract }) {
           <div className="grid grid-cols-2 gap-6">
             
             {/* The Dynamic Listing Card */}
-            <div className={`bg-white p-6 rounded-xl shadow-sm border ${listing.ended ? 'border-red-200 bg-stone-50' : 'border-stone-100'}`}>
-              <div className="h-40 bg-stone-200 rounded-lg mb-4 overflow-hidden relative">
-                {/* Visual placeholder for crop image */}
-                <div className="absolute top-2 left-2 bg-white px-2 py-1 text-xs font-bold rounded shadow-sm text-stone-600">
-                  {listing.ended ? 'CLOSED' : 'LIVE'}
-                </div>
-              </div>
-              <h4 className="font-bold text-lg">{listing.cropType || "Premium Hard Red Wheat"}</h4>
-              <p className="text-sm text-stone-500 mb-4 font-mono truncate">Seller: {listing.seller}</p>
+            <div className={`bg-white rounded-2xl shadow-md border overflow-hidden ${listing.ended ? 'border-red-200 bg-stone-50' : 'border-stone-100 hover:shadow-lg transition-shadow'}`}>
               
-              <div className="space-y-2 mb-4 border-b pb-4">
-                <div className="flex justify-between text-sm">
-                  <span className="text-stone-500">Current Highest Bid:</span>
-                  <span className="font-bold">{listing.highestBid} ETH</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-stone-500">Instant Buyout:</span>
-                  <span className="font-bold text-agriGreen">{listing.buyoutPrice} ETH</span>
+              {/* IMAGE HEADER */}
+              <div className="h-56 relative">
+                <img src="/wheat.jpg" alt="Live Crop" className={`w-full h-full object-cover ${listing.ended ? 'grayscale opacity-70' : ''}`} />
+                <div className={`absolute top-4 left-4 backdrop-blur-sm px-4 py-1.5 text-xs font-black rounded-md shadow-lg tracking-wide ${
+                  listing.ended ? 'bg-red-600 text-white' : 'bg-white/95 text-emerald-700'
+                }`}>
+                  {listing.ended ? 'AUCTION CLOSED' : 'LIVE AUCTION'}
                 </div>
               </div>
 
-              {!listing.ended ? (
-                <div className="space-y-3">
-                  <div className="flex gap-2">
-                    <input 
-                      type="number" 
-                      placeholder={`> ${listing.highestBid} ETH`}
-                      value={bidAmount}
-                      onChange={(e) => setBidAmount(e.target.value)}
-                      className="flex-1 p-2 border border-stone-300 rounded-md text-sm"
-                    />
+              <div className="p-6">
+                <h4 className="font-bold text-xl mb-1">{listing.cropType || "Premium Hard Red Wheat"}</h4>
+                <p className="text-sm text-stone-500 mb-5 font-mono truncate">Seller: {listing.seller}</p>
+                
+                <div className="space-y-3 mb-6 bg-stone-50 p-4 rounded-xl border border-stone-100">
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-stone-500 font-medium">Current Highest Bid</span>
+                    <span className="font-black text-lg">{listing.highestBid} ETH</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-stone-500 font-medium">Instant Buyout</span>
+                    <span className="font-black text-lg text-agriGreen">{listing.buyoutPrice} ETH</span>
+                  </div>
+                </div>
+
+                {!listing.ended ? (
+                  <div className="space-y-3">
+                    <div className="flex gap-2">
+                      <input 
+                        type="number" 
+                        placeholder={`> ${listing.highestBid} ETH`}
+                        value={bidAmount}
+                        onChange={(e) => setBidAmount(e.target.value)}
+                        className="flex-1 p-2 border border-stone-300 rounded-md text-sm"
+                      />
+                      <button 
+                        onClick={handlePlaceBid}
+                        className="bg-agriGreen text-white px-4 py-2 rounded-md text-sm font-bold shadow hover:bg-emerald-800"
+                      >
+                        Place Bid
+                      </button>
+                    </div>
                     <button 
-                      onClick={handlePlaceBid}
-                      className="bg-agriGreen text-white px-4 py-2 rounded-md text-sm font-bold shadow hover:bg-emerald-800"
+                      onClick={handleBuyout}
+                      className="w-full border-2 border-agriGreen text-agriGreen py-2 rounded-md text-sm font-bold hover:bg-emerald-50"
                     >
-                      Place Bid
+                      Execute Buyout ({listing.buyoutPrice} ETH)
                     </button>
                   </div>
-                  <button 
-                    onClick={handleBuyout}
-                    className="w-full border-2 border-agriGreen text-agriGreen py-2 rounded-md text-sm font-bold hover:bg-emerald-50"
-                  >
-                    Execute Buyout ({listing.buyoutPrice} ETH)
-                  </button>
-                </div>
-              ) : (
-                <div className="text-center py-3 bg-stone-200 rounded-md text-stone-600 font-bold">
-                  Auction Finalized
-                </div>
-              )}
+                ) : (
+                  <div className="text-center py-3 bg-stone-200 rounded-md text-stone-600 font-bold">
+                    Auction Finalized
+                  </div>
+                )}
+              </div>
             </div>
 
           </div>

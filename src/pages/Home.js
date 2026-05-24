@@ -7,7 +7,6 @@ export default function Home({ contract }) {
   const navigate = useNavigate();
   const [featuredListing, setFeaturedListing] = useState(null);
 
-  // Fetch the latest listing to display on the Home Page
   useEffect(() => {
     if (contract) {
       loadFeaturedListing();
@@ -33,27 +32,25 @@ export default function Home({ contract }) {
 
   return (
     <div>
-      {/* Hero Banner */}
-      <div className="bg-agriGreen text-white px-12 py-16 relative overflow-hidden">
-        <div className="max-w-2xl relative z-10">
-          <h1 className="text-4xl font-bold mb-4">Decentralized Marketplace<br/>for Farmers</h1>
-          <p className="mb-8 text-emerald-100">Securely Trade Crops, Access Auctions, and Connect with Global Markets on the Blockchain.</p>
+      {/* BEAUTIFUL HERO BANNER */}
+      {/* Uses the background image with a custom blend mode and gradient overlay */}
+      <div 
+        className="relative text-white px-12 py-28 overflow-hidden bg-agriGreen/90 bg-blend-multiply bg-cover bg-center shadow-inner"
+        style={{ backgroundImage: "url('/hero-bg.jpg')" }}
+      >
+        <div className="max-w-2xl relative z-10 drop-shadow-lg">
+          <h1 className="text-5xl font-extrabold mb-6 leading-tight">Decentralized Marketplace<br/>for Farmers</h1>
+          <p className="mb-10 text-lg text-emerald-50 font-medium">Securely Trade Crops, Access Auctions, and Connect with Global Markets on the Blockchain.</p>
           <div className="flex gap-4">
             <button 
               onClick={() => navigate('/marketplace')}
-              className="bg-white text-agriGreen px-6 py-2 rounded-md font-bold hover:bg-stone-100 transition-colors"
+              className="bg-white text-agriGreen px-8 py-3 rounded-md font-bold shadow-lg hover:bg-stone-100 transition-transform hover:scale-105"
             >
               Explore Marketplace
             </button>
             <button 
-              onClick={() => navigate('/marketplace')}
-              className="border border-white px-6 py-2 rounded-md font-medium hover:bg-emerald-800 transition-colors"
-            >
-              Learn More
-            </button>
-            <button 
               onClick={() => navigate('/dashboard')}
-              className="bg-orange-500 text-white px-6 py-2 rounded-md font-bold shadow-lg hover:bg-orange-600 transition-colors"
+              className="bg-orange-500 text-white px-8 py-3 rounded-md font-bold shadow-lg hover:bg-orange-600 transition-transform hover:scale-105"
             >
               Create Listing
             </button>
@@ -62,61 +59,96 @@ export default function Home({ contract }) {
       </div>
 
       {/* Main Content */}
-      <div className="flex px-8 py-8 gap-8">
+      <div className="flex px-8 py-10 gap-8 max-w-screen-2xl mx-auto">
         
         {/* Sidebar Filters */}
         <div className="w-1/4">
-          <h3 className="font-bold mb-4">Filters</h3>
+          <h3 className="font-bold mb-4 text-xl">Filters</h3>
           <div className="space-y-6">
             <div>
               <label className="text-sm text-stone-500 block mb-1">Crop Type</label>
-              <select className="w-full p-2 border rounded-md bg-white"><option>Wheat</option></select>
+              <select className="w-full p-3 border border-stone-200 rounded-lg bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-agriGreen/20"><option>Wheat</option></select>
             </div>
             <div>
               <label className="text-sm text-stone-500 block mb-1">Location</label>
-              <select className="w-full p-2 border rounded-md bg-white"><option>Hapur, Uttar Pradesh</option></select>
+              <select className="w-full p-3 border border-stone-200 rounded-lg bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-agriGreen/20"><option>Hapur, Uttar Pradesh</option></select>
             </div>
           </div>
         </div>
 
         {/* Featured Crops Grid */}
         <div className="w-3/4">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="font-bold text-xl">Featured crops</h3>
-            <select className="p-1 border rounded-md bg-white text-sm"><option>All Features</option></select>
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="font-bold text-2xl">Featured crops</h3>
+            <select className="p-2 border border-stone-200 rounded-lg bg-white text-sm shadow-sm"><option>All Features</option></select>
           </div>
           
-          <div className="grid grid-cols-3 gap-6">
-            {/* Dynamic Card */}
-            <div className="bg-white p-4 rounded-xl shadow-sm border border-stone-100">
-              <div className="h-32 bg-stone-200 rounded-lg mb-4 overflow-hidden relative">
-                <div className="absolute top-2 left-2 bg-white px-2 py-1 text-xs font-bold rounded shadow-sm text-stone-600">LIVE</div>
+          <div className="grid grid-cols-3 gap-8">
+            
+            {/* LIVE DYNAMIC CARD (Reads from Smart Contract) */}
+            <div className="bg-white rounded-2xl shadow-md border border-stone-100 overflow-hidden hover:shadow-lg transition-shadow flex flex-col">
+              <div className="h-48 relative">
+                <img src="/wheat.jpg" alt="Wheat Listing" className="w-full h-full object-cover" />
+                <div className="absolute top-3 left-3 bg-white/95 backdrop-blur-sm px-3 py-1 text-xs font-black rounded-md shadow-md text-emerald-700 tracking-wide">
+                  LIVE AUCTION
+                </div>
               </div>
-              <h4 className="font-bold truncate">{featuredListing ? featuredListing.cropType : "Premium Hard Red Wheat"}</h4>
-              <p className="text-sm text-stone-500 mb-4">📍 Hapur, Uttar Pradesh</p>
-              
-              <div className="flex justify-between text-sm mb-4 border-t pt-4">
-                <span className="text-stone-500">Current Bid:</span>
-                <span className="font-bold text-right text-agriGreen">
-                  {featuredListing ? featuredListing.highestBid : "0.00"} ETH
-                </span>
-              </div>
-              
-              <div className="flex gap-2">
-                <button 
-                  onClick={() => navigate('/marketplace')}
-                  className="flex-1 border border-stone-300 hover:border-agriGreen hover:text-agriGreen rounded-md py-2 text-sm font-medium transition-colors"
-                >
-                  View Details
-                </button>
-                <button 
-                  onClick={() => navigate('/marketplace')}
-                  className="flex-1 bg-agriGreen hover:bg-emerald-800 text-white rounded-md py-2 text-sm font-medium transition-colors"
-                >
-                  Place Bid
-                </button>
+              <div className="p-5 flex-1 flex flex-col">
+                <h4 className="font-bold text-lg mb-1 truncate">{featuredListing ? featuredListing.cropType : "Premium Hard Red Wheat"}</h4>
+                <p className="text-sm text-stone-500 mb-4 flex items-center gap-1">📍 Hapur, Uttar Pradesh</p>
+                
+                <div className="flex justify-between text-sm mb-5 pb-5 border-b border-stone-100">
+                  <span className="text-stone-500 font-medium">Current Bid:</span>
+                  <span className="font-black text-right text-agriGreen text-base">
+                    {featuredListing ? featuredListing.highestBid : "0.00"} ETH
+                  </span>
+                </div>
+                
+                <div className="flex gap-3 mt-auto">
+                  <button onClick={() => navigate('/marketplace')} className="flex-1 border-2 border-stone-200 hover:border-agriGreen hover:text-agriGreen text-stone-600 rounded-lg py-2 text-sm font-bold transition-colors">Details</button>
+                  <button onClick={() => navigate('/marketplace')} className="flex-1 bg-agriGreen hover:bg-emerald-800 text-white rounded-lg py-2 text-sm font-bold shadow-md transition-colors">Place Bid</button>
+                </div>
               </div>
             </div>
+
+            {/* STATIC CARD 1: Rice */}
+            <div className="bg-white rounded-2xl shadow-md border border-stone-100 overflow-hidden hover:shadow-lg transition-shadow flex flex-col">
+              <div className="h-48 relative">
+                <img src="/rice.jpg" alt="Rice Listing" className="w-full h-full object-cover" />
+              </div>
+              <div className="p-5 flex-1 flex flex-col">
+                <h4 className="font-bold text-lg mb-1 truncate">Premium Basmati Rice</h4>
+                <p className="text-sm text-stone-500 mb-4 flex items-center gap-1">📍 Karnal, Haryana</p>
+                <div className="flex justify-between text-sm mb-5 pb-5 border-b border-stone-100">
+                  <span className="text-stone-500 font-medium">Current Bid:</span>
+                  <span className="font-black text-right text-agriGreen text-base">0.120 ETH</span>
+                </div>
+                <div className="flex gap-3 mt-auto">
+                  <button onClick={() => navigate('/marketplace')} className="flex-1 border-2 border-stone-200 hover:border-agriGreen hover:text-agriGreen text-stone-600 rounded-lg py-2 text-sm font-bold transition-colors">Details</button>
+                  <button onClick={() => navigate('/marketplace')} className="flex-1 bg-agriGreen hover:bg-emerald-800 text-white rounded-lg py-2 text-sm font-bold shadow-md transition-colors">Place Bid</button>
+                </div>
+              </div>
+            </div>
+
+            {/* STATIC CARD 2: Corn */}
+            <div className="bg-white rounded-2xl shadow-md border border-stone-100 overflow-hidden hover:shadow-lg transition-shadow flex flex-col">
+              <div className="h-48 relative">
+                <img src="/corn.jpg" alt="Corn Listing" className="w-full h-full object-cover" />
+              </div>
+              <div className="p-5 flex-1 flex flex-col">
+                <h4 className="font-bold text-lg mb-1 truncate">Yellow Dent Corn</h4>
+                <p className="text-sm text-stone-500 mb-4 flex items-center gap-1">📍 Pune, Maharashtra</p>
+                <div className="flex justify-between text-sm mb-5 pb-5 border-b border-stone-100">
+                  <span className="text-stone-500 font-medium">Current Bid:</span>
+                  <span className="font-black text-right text-agriGreen text-base">0.085 ETH</span>
+                </div>
+                <div className="flex gap-3 mt-auto">
+                  <button onClick={() => navigate('/marketplace')} className="flex-1 border-2 border-stone-200 hover:border-agriGreen hover:text-agriGreen text-stone-600 rounded-lg py-2 text-sm font-bold transition-colors">Details</button>
+                  <button onClick={() => navigate('/marketplace')} className="flex-1 bg-agriGreen hover:bg-emerald-800 text-white rounded-lg py-2 text-sm font-bold shadow-md transition-colors">Place Bid</button>
+                </div>
+              </div>
+            </div>
+
           </div>
         </div>
       </div>
